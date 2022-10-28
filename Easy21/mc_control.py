@@ -1,19 +1,15 @@
 from random import choice, random
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
-import matplotlib.pyplot as plt
 import numpy as np
+from easy21 import Action, Reward, Rules, State
+from plotting import plot_V
 from tqdm import tqdm
 
-from Easy21 import Action, Reward, Rules, State, step
 
-
-def run_episode(N_dealer_states: int, N0: int, N: np.ndarray) -> Tuple[Reward, List[Tuple[int]]]:
-    card_value_to_index = {i + 1: i for i in range(N_dealer_states)}
-    player_sum_to_index = {
-        i + Rules.MIN_VALUE.value: i for i in range(Rules.MAX_VALUE.value - Rules.MIN_VALUE.value + 1)
-    }
-
+def run_episode(
+    Q: np.ndarray, N0: int, N: np.ndarray, card_value_to_index: Dict[int, int], player_sum_to_index: Dict[int, int]
+) -> Tuple[Reward, List[Tuple[int]]]:
     visited_indices = []
     state = State()
 
@@ -38,7 +34,7 @@ def run_episode(N_dealer_states: int, N0: int, N: np.ndarray) -> Tuple[Reward, L
         visited_indices.append(state_action_index)
 
         # Take next step
-        terminate, reward = step(state, action)
+        terminate, reward = state.step(action)
 
     return reward, visited_indices, N
 
@@ -52,46 +48,28 @@ def update_Q(Q: np.ndarray, G: int, visited_indices: List[Tuple[int]], N_a: np.n
     return Q, N_a
 
 
-def plot_V(V: np.ndarray, title: str = None) -> plt.figure:
-    dealer_showing = np.arange(1, 11, 1)
-    player_sum = np.arange(1, 22, 1)
-
-    X, Y = np.meshgrid(dealer_showing, player_sum)
-
-    fig = plt.figure(figsize=(10, 10))
-    ax = plt.axes(projection="3d")
-    ax.plot_surface(X, Y, np.swapaxes(V, 0, 1))
-    ax.set_xlabel("Dealer showing")
-    ax.set_ylabel("Player sum")
-    ax.set_xticks(range(1, 11))
-    ax.set_yticks(range(1, 22))
-    ax.set_zticks([-1, 0, 1])
-    ax.set_box_aspect((np.ptp(X), np.ptp(Y), np.ptp(Y) / 2))
-
-    if title:
-        plt.title(title)
-
-    plt.tight_layout()
-    return fig
-
-
 if __name__ == "__main__":
     N_dealer_states = 10  # 10 dealer first card options
     N_player_states = 21  # 21 player sum options
     N_actions = 2  # Hit or Stick
 
     N0 = 100  # Constant
-    N_episodes = 10_000_000
+    N_episodes = 1_000_000
 
     # Init
     Q = np.zeros((N_dealer_states, N_player_states, N_actions), dtype="float")
     N = np.zeros((N_dealer_states, N_player_states), dtype="int")
     N_a = np.zeros((N_dealer_states, N_player_states, N_actions), dtype="int")
 
+    card_value_to_index = {i + 1: i for i in range(N_dealer_states)}
+    player_sum_to_index = {
+        i + Rules.MIN_VALUE.value: i for i in range(Rules.MAX_VALUE.value - Rules.MIN_VALUE.value + 1)
+    }
+
     # Run MC
     for episode in tqdm(range(N_episodes)):
         # Run episode
-        reward, visited_indices, N = run_episode(N_dealer_states, N0, N)
+        reward, visited_indices, N = run_episode(Q, N0, N, card_value_to_index, player_sum_to_index)
 
         # Update information
         Q, N_a = update_Q(Q, reward.value, visited_indices, N_a)
@@ -99,4 +77,4 @@ if __name__ == "__main__":
     V = np.max(Q, axis=-1)
     fig = plot_V(V, title=f"MC with N_episodes = {N_episodes:,}")
 
-    fig.savefig("optimal_V.png")
+    fig.savefig("Easy21/Plots/test.png")

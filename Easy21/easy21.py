@@ -44,6 +44,52 @@ class State:
 
         self._dealers_sum = deepcopy(self.dealers_first_card)
 
+    def dealer_turn(self) -> bool:
+        if self._dealers_sum < Rules.DEALER_THRESHOLD.value:
+            terminal, self._dealers_sum = hit(self._dealers_sum)
+        else:
+            self.dealer_stick = True
+            terminal = False
+
+        return terminal
+
+    def step(self, action: Action) -> Tuple[bool, Reward]:
+        terminal = False
+        # Agent action / Player turn
+        if action == Action.HIT:
+            terminal, self.players_sum = hit(self.players_sum)
+            if terminal:
+                return terminal, Reward.BUST
+
+        elif action == Action.STICK:
+            self.player_stick = True
+        else:
+            raise NotImplementedError("action not implemented")
+
+        # Enviroment / Dealers turn
+        if not self.dealer_stick:
+            if self.player_stick:
+                while self.dealer_stick is False and terminal is False:
+                    terminal = self.dealer_turn()
+            else:
+                terminal = self.dealer_turn()
+
+            if terminal:
+                return terminal, Reward.WIN
+
+        # Evaluate values if both players has stuck
+        if self.player_stick & self.dealer_stick:
+            terminal = True
+
+            if self.players_sum > self._dealers_sum:
+                return terminal, Reward.WIN
+            elif self.players_sum < self._dealers_sum:
+                return terminal, Reward.LOSE
+            else:
+                return terminal, Reward.DRAW
+
+        return terminal, Reward.NO_REWARD
+
 
 class Enviroment:
     def __init__(self, state: State) -> None:
@@ -75,54 +121,6 @@ def hit(sum: int) -> bool:
     return terminal, new_sum
 
 
-def dealer_turn(state: State) -> Tuple[bool, State]:
-    if state._dealers_sum < Rules.DEALER_THRESHOLD.value:
-        terminal, state._dealers_sum = hit(state._dealers_sum)
-    else:
-        state.dealer_stick = True
-        terminal = False
-
-    return terminal, state
-
-
-def step(state: State, action: Action) -> Tuple[bool, Reward]:
-    terminal = False
-    # Agent action / Player turn
-    if action == Action.HIT:
-        terminal, state.players_sum = hit(state.players_sum)
-        if terminal:
-            return terminal, Reward.BUST
-
-    elif action == Action.STICK:
-        state.player_stick = True
-    else:
-        raise NotImplementedError("action not implemented")
-
-    # Enviroment / Dealers turn
-    if not state.dealer_stick:
-        if state.player_stick:
-            while state.dealer_stick is False and terminal is False:
-                terminal, state = dealer_turn(state)
-        else:
-            terminal, state = dealer_turn(state)
-
-        if terminal:
-            return terminal, Reward.WIN
-
-    # Evaluate values if both players has stuck
-    if state.player_stick & state.dealer_stick:
-        terminal = True
-
-        if state.players_sum > state._dealers_sum:
-            return terminal, Reward.WIN
-        elif state.players_sum < state._dealers_sum:
-            return terminal, Reward.LOSE
-        else:
-            return terminal, Reward.DRAW
-
-    return terminal, Reward.NO_REWARD
-
-
 if __name__ == "__main__":
     state = State()
     terminal = False
@@ -135,7 +133,7 @@ if __name__ == "__main__":
             action = input("HIT or STICK? ")
             action = getattr(Action, action)
 
-        terminal, step_reward = step(state, action)
+        terminal, step_reward = state.step(action)
         total_reward = step_reward.value
 
     print()
