@@ -1,80 +1,55 @@
-from random import choice, random
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
-import numpy as np
-from easy21 import Action, Reward, Rules, State
+from base_control import BaseControl
+from easy21 import Reward, State
 from plotting import plot_V
 from tqdm import tqdm
 
 
-def run_episode(
-    Q: np.ndarray, N0: int, N: np.ndarray, card_value_to_index: Dict[int, int], player_sum_to_index: Dict[int, int]
-) -> Tuple[Reward, List[Tuple[int]]]:
-    visited_indices = []
-    state = State()
+class MonteCarloControl(BaseControl):
+    def run_episode(self) -> Tuple[Reward, List[Tuple[int]]]:
+        visited_indices = []
+        state = State()
 
-    terminate = False
-    while terminate is False:
-        # Update variables
-        state_index = (card_value_to_index[state.dealers_first_card], player_sum_to_index[state.players_sum])
-        eps = N0 / (N0 + N[state_index])
-        N[state_index] += 1
+        terminate = False
+        while terminate is False:
+            # Update variables
+            state_index = (
+                self.card_value_to_index[state.dealers_first_card],
+                self.player_sum_to_index[state.players_sum],
+            )
+            eps = self.N0 / (self.N0 + self.N[state_index])
+            self.N[state_index] += 1
 
-        # Take action using eps-Greedy Exploration
-        if 1 - eps >= random():
-            max_action_value = Q[state_index[0], state_index[1]].max()
-            action_ind = choice(np.where(Q[state_index[0], state_index[1]] == max_action_value)[0])
-        else:
-            action_ind = choice(range(N_actions))
+            state_action_index, action = self.eps_greedy_action(eps, state_index)
 
-        action = Action(action_ind)
+            visited_indices.append(state_action_index)
 
-        # Save relevant stuff
-        state_action_index = (state_index[0], state_index[1], action_ind)
-        visited_indices.append(state_action_index)
+            # Take next step
+            terminate, reward = state.step(action)
 
-        # Take next step
-        terminate, reward = state.step(action)
+        self.N_episodes_run += 1
+        return reward, visited_indices
 
-    return reward, visited_indices, N
+    def update_Q(self, reward: int, visited_indices: List[Tuple[int]]) -> None:
+        for index in visited_indices:
+            self.N_a[index] += 1
+            alpha = 1 / self.N_a[index]
+            self.Q[index] = self.Q[index] + alpha * (reward - self.Q[index])
 
-
-def update_Q(Q: np.ndarray, G: int, visited_indices: List[Tuple[int]], N_a: np.ndarray) -> np.ndarray:
-    for index in visited_indices:
-        N_a[index] += 1
-        alpha = 1 / N_a[index]
-        Q[index] = Q[index] + alpha * (G - Q[index])
-
-    return Q, N_a
+    def run_N_update_steps(self, N: int = 1000) -> None:
+        for _ in tqdm(range(N)):
+            reward, visited_indices = self.run_episode()
+            self.update_Q(reward.value, visited_indices)
 
 
 if __name__ == "__main__":
-    N_dealer_states = 10  # 10 dealer first card options
-    N_player_states = 21  # 21 player sum options
-    N_actions = 2  # Hit or Stick
+    N0 = 100
+    N_EPISODES = 1_000_000
 
-    N0 = 100  # Constant
-    N_episodes = 1_000_000
+    control = MonteCarloControl(N0)
+    control.run_N_update_steps(N_EPISODES)
+    V = control.return_V()
 
-    # Init
-    Q = np.zeros((N_dealer_states, N_player_states, N_actions), dtype="float")
-    N = np.zeros((N_dealer_states, N_player_states), dtype="int")
-    N_a = np.zeros((N_dealer_states, N_player_states, N_actions), dtype="int")
-
-    card_value_to_index = {i + 1: i for i in range(N_dealer_states)}
-    player_sum_to_index = {
-        i + Rules.MIN_VALUE.value: i for i in range(Rules.MAX_VALUE.value - Rules.MIN_VALUE.value + 1)
-    }
-
-    # Run MC
-    for episode in tqdm(range(N_episodes)):
-        # Run episode
-        reward, visited_indices, N = run_episode(Q, N0, N, card_value_to_index, player_sum_to_index)
-
-        # Update information
-        Q, N_a = update_Q(Q, reward.value, visited_indices, N_a)
-
-    V = np.max(Q, axis=-1)
-    fig = plot_V(V, title=f"MC with N_episodes = {N_episodes:,}")
-
-    fig.savefig("Easy21/Plots/test.png")
+    fig = plot_V(V, title=f"MC with N_episodes = {control.N_episodes_run:,}")
+    fig.savefig("Easy21/plots/MC_optimal_V.png")
