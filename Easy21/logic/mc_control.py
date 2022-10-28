@@ -1,8 +1,8 @@
 from typing import List, Tuple
 
-from base_control import BaseControl
-from easy21 import Reward, State
-from plotting import plot_V
+from logic.base_control import BaseControl
+from logic.easy21 import Reward, State
+from logic.plotting import plot_V
 from tqdm import tqdm
 
 

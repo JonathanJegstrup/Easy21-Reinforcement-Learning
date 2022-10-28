@@ -2,7 +2,7 @@ from random import choice, random
 from typing import Tuple
 
 import numpy as np
-from easy21 import Action, Rules
+from logic.easy21 import Action, Rules
 
 
 class BaseControl:

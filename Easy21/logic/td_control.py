@@ -1,7 +1,7 @@
 import numpy as np
-from base_control import BaseControl
-from easy21 import State
-from plotting import plot_V
+from logic.base_control import BaseControl
+from logic.easy21 import State
+from logic.plotting import plot_V
 from tqdm import tqdm
 
 
