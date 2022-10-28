@@ -32,10 +32,10 @@ if __name__ == "__main__":
         td_control = TDControl(N0, lam)
 
         if lam in lambdas_to_record:
-            learning_curve = [np.sum((mc_Q - td_control.Q) ** 2)]
+            learning_curve = [np.mean((mc_Q - td_control.Q) ** 2)]
             for _ in range(N_td_steps):
                 td_control.run_episode()
-                learning_curve.append(np.sum((mc_Q - td_control.Q) ** 2))
+                learning_curve.append(np.mean((mc_Q - td_control.Q) ** 2))
 
             learning_curves.append(learning_curve)
 
@@ -44,7 +44,7 @@ if __name__ == "__main__":
         td_Q = td_control.Q
 
         # Compute mean squared error
-        mse.append(np.sum((mc_Q - td_Q) ** 2))
+        mse.append(np.mean((mc_Q - td_Q) ** 2))
 
     # MSE pr. lambda
     fig = plt.figure()
